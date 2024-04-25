@@ -233,7 +233,10 @@ void
 thread_unblock (struct thread *t) 
 {
   enum intr_level old_level;
-
+  if (thread_current()->status == THREAD_RUNNING)
+  {
+    thread_yield();
+  }
   ASSERT (is_thread (t));
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
@@ -242,7 +245,7 @@ thread_unblock (struct thread *t)
   t->status = THREAD_READY;
   // printf("teeeeeeeeeeeeeeeeeeeeeeeeeeeeeest ----> %p\n", (void *)(t));
   intr_set_level (old_level);
-  
+
 }
 
 /* Returns the name of the running thread. */
@@ -340,7 +343,6 @@ void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
-  
   thread_yield();
 }
 
@@ -576,16 +578,16 @@ schedule (void)
     prev = switch_threads (cur, next);
   thread_schedule_tail (prev);
   
-  // enum intr_level old = intr_disable();
-  // printf("====================================================\n");
-  // printf("Name of front of ready list  ==> %s\n", (list_entry(list_head(&ready_list), struct thread, elem))->name);
-  // printf("cur Thread Name              ==> %s\n", cur->name);
-  // printf("cur Thread PRI               ==> %d\n", cur->priority);
-  // printf("next Thread Name             ==> %s\n", next->name);
-  // printf("next Thread PRI              ==> %d\n", next->priority);
-  // printf("kernel_thread ticks          ==> %lli\n", kernel_ticks);
-  // thread_foreach(print_name_threads, NULL);
-  // intr_set_level(old);
+  enum intr_level old = intr_disable();
+  printf("====================================================\n");
+  printf("Name of front of ready list  ==> %s\n", (list_entry(list_head(&ready_list), struct thread, elem))->name);
+  printf("cur Thread Name              ==> %s\n", cur->name);
+  printf("cur Thread PRI               ==> %d\n", cur->priority);
+  printf("next Thread Name             ==> %s\n", next->name);
+  printf("next Thread PRI              ==> %d\n", next->priority);
+  printf("kernel_thread ticks          ==> %lli\n", kernel_ticks);
+  thread_foreach(print_name_threads, NULL);
+  intr_set_level(old);
 }
 
 bool compare_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
