@@ -170,37 +170,39 @@ thread_create (const char *name, int priority,
   struct kernel_thread_frame *kf;
   struct switch_entry_frame *ef;
   struct switch_threads_frame *sf;
+
   tid_t tid;
-
+  
   ASSERT (function != NULL);
-
+  
   /* Allocate thread. */
   t = palloc_get_page (PAL_ZERO);
+  
   if (t == NULL)
     return TID_ERROR;
-
+  
   /* Initialize thread. */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
-
+  
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
   kf->eip = NULL;
   kf->function = function;
   kf->aux = aux;
-
+  
   /* Stack frame for switch_entry(). */
   ef = alloc_frame (t, sizeof *ef);
   ef->eip = (void (*) (void)) kernel_thread;
-
+  
   /* Stack frame for switch_threads(). */
   sf = alloc_frame (t, sizeof *sf);
   sf->eip = switch_entry;
   sf->ebp = 0;
-
+  
   /* Add to run queue. */
   thread_unblock (t);
-
+  
   return tid;
 }
 
@@ -331,11 +333,36 @@ thread_foreach (thread_action_func *func, void *aux)
     }
 }
 
+/* priority = priority max - (recent cpu / 4) - (nice * 2) */
+/* then we want to calculate this require */ 
+
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority (int new_priority) 
 {
-  thread_current ()->priority = new_priority;
+  if(thread_mlfqs) 
+    return ; 
+  enum intr_level old_level;
+  ASSERT(!intr_context());
+  old_level = intr_disable();
+  struct thread* current_thread = thread_current();
+  if(!list_empty(&current_thread->the_aquired_locks_list))
+  {
+    struct list_elem *max_priority_element = list_max(&thread_current()->the_aquired_locks_list , thread_priority_max , NULL);
+    struct lock *max_priority_lock = list_entry(max_priority_element , struct lock_thread , lock_element);
+    if(max_priority_lock->lock_priority  < new_priority)
+    {
+      current_thread->priority = new_priority;
+    }
+    current_thread->the_actual_priority = new_priority;
+  }
+  else
+  {
+    current_thread->the_actual_priority = new_priority;
+    current_thread->priority = new_priority;
+  }
+  thread_yield();
+  intr_set_level(old_level);
 }
 
 /* Returns the current thread's priority. */
@@ -582,3 +609,41 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+
+/* youssef benyamine add this function */
+
+bool thread_priority_max(const struct list_elem *first_element, const struct list_elem *second_element, void *third_element)
+{
+	const struct thread *first = list_entry(first_element   , struct thread_lock , element_thread);
+  const struct thread *second = list_entry(second_element , struct thread_lock , element_thread);
+  return (first->priority) < (second->priority);
+}
+
+void calculation_the_average_load(void)
+{
+  size_t thread_ready_s = list_size(&(ready_list));
+  the_average_load = fixed_add(int_fixed_div(int_fixed_mul(the_average_load, 59), 60), int_fixed_div(int_to_fixed(thread_ready_s + (strcmp(running_thread()->name , "idle") == 0 ? 0 : 1)) , 60));
+}
+
+void calculation_the_cpu_recent(struct thread *thr)
+{
+  int m = (fixed_divide(int_fixed_mul(the_average_load, 2) , int_fixed_add(int_fixed_mul(the_average_load , 2) , 1)));
+  (thr->cpu_recent) = int_fixed_add((fixed_multiply(m , thr->cpu_recent)) , thr->cpu_nice);
+}
+
+void calculation_the_priority(struct thread *thr)
+{
+  thr->priority = PRI_MAX - fixed_to_int_round(int_fixed_div(thr->cpu_recent, 4)) - (thr->cpu_nice * 2);
+  if(thr->priority > PRI_MAX)
+  {
+    thr->priority = PRI_MAX;
+  }
+  else if(thr->priority < PRI_MIN)
+  {
+    thr->priority = PRI_MIN;
+  }
+  else{/* NOTHING */}
+}
+
+
+/* youssef benyamine add this function */
