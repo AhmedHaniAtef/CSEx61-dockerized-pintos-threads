@@ -71,6 +71,7 @@ static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 
+
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
    general and it is possible in this case only because loader.S
@@ -236,12 +237,14 @@ thread_unblock (struct thread *t)
   enum intr_level old_level;
 
   ASSERT (is_thread (t));
-
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+  list_insert_ordered(&ready_list, &(t->elem), compare_priority, NULL);
+  // list_push_back (&ready_list, &t->elem);
   t->status = THREAD_READY;
+  // printf("teeeeeeeeeeeeeeeeeeeeeeeeeeeeeest ----> %p\n", (void *)(t));
   intr_set_level (old_level);
+  thread_yield();
 }
 
 /* Returns the name of the running thread. */
@@ -310,7 +313,8 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+    list_insert_ordered(&ready_list, &(cur->elem), compare_priority, NULL);
+    // list_push_back (&ready_list, &cur->elem);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -569,6 +573,12 @@ thread_schedule_tail (struct thread *prev)
     }
 }
 
+void print_name_threads(struct thread* t, void *aux UNUSED)
+{
+  printf("Thread name                  ==> %s\n", t->name);
+  printf("Thread PRIORITY              ==> %d\n", t->priority);
+}
+
 /* Schedules a new process.  At entry, interrupts must be off and
    the running process's state must have been changed from
    running to some other state.  This function finds another
@@ -590,6 +600,25 @@ schedule (void)
   if (cur != next)
     prev = switch_threads (cur, next);
   thread_schedule_tail (prev);
+  
+  // enum intr_level old = intr_disable();
+  // printf("====================================================\n");
+  // printf("Name of front of ready list  ==> %s\n", (list_entry(list_head(&ready_list), struct thread, elem))->name);
+  // printf("cur Thread Name              ==> %s\n", cur->name);
+  // printf("cur Thread PRI               ==> %d\n", cur->priority);
+  // printf("next Thread Name             ==> %s\n", next->name);
+  // printf("next Thread PRI              ==> %d\n", next->priority);
+  // printf("kernel_thread ticks          ==> %lli\n", kernel_ticks);
+  // thread_foreach(print_name_threads, NULL);
+  // intr_set_level(old);
+}
+
+bool compare_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+{
+  struct thread *a_thread = list_entry(a, struct thread, elem);
+  struct thread *b_thread = list_entry(b, struct thread, elem);
+
+  return a_thread->priority > b_thread->priority; 
 }
 
 /* Returns a tid to use for a new thread. */

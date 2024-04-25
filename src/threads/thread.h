@@ -136,6 +136,8 @@ void thread_yield (void);
 typedef void thread_action_func (struct thread *t, void *aux);
 void thread_foreach (thread_action_func *, void *);
 
+bool compare_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
+
 int thread_get_priority (void);
 void thread_set_priority (int);
 
@@ -144,12 +146,14 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
+<<<<<<< HEAD
 /* youssef benyamine add this function */
 bool thread_priority_max(const struct list_elem *first_element, const struct list_elem *second_element, void *third_element);
-void calculation_the_cpu_recent(struct thread *thr);
-void calculation_the_priority(struct thread *thr);
-void calculation_the_average_load(void);
-int the_average_load;
 /* youssef benyamine add this function */
 
 #endif /* threads/thread.h */
+=======
+
+
+#endif /* threads/thread.h */
+>>>>>>> priority-scheduling
