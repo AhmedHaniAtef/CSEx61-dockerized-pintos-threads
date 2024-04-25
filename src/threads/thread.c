@@ -614,7 +614,7 @@ uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 
 bool thread_priority_max(const struct list_elem *first_element, const struct list_elem *second_element, void *third_element)
 {
-	return (list_entry(first_element , struct lock , list_elements)->lockPriority) < (list_entry(second_element , struct lock , list_elements)->lockPriority);
+	return (list_entry(first_element , struct lock , list_elements)->lock_priority) < (list_entry(second_element , struct lock , list_elements)->lock_priority);
 }
 
 /* youssef benyamine add this function */
