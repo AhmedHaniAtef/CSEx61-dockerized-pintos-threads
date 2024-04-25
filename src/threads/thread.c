@@ -244,7 +244,7 @@ thread_unblock (struct thread *t)
   t->status = THREAD_READY;
   // printf("teeeeeeeeeeeeeeeeeeeeeeeeeeeeeest ----> %p\n", (void *)(t));
   intr_set_level (old_level);
-  thread_yield();
+  // thread_yield();
 }
 
 /* Returns the name of the running thread. */
