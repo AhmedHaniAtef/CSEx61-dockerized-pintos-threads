@@ -24,7 +24,6 @@ struct lock
     struct semaphore semaphore; /* Binary semaphore controlling access. */
     /* youssef benyamine add this variable */
     int lock_priority;
-    struct list_elem list_elements; 
     /* youssef benyamine add this variable */
   };
 
