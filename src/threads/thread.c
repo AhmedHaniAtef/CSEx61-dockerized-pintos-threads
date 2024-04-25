@@ -242,7 +242,7 @@ thread_unblock (struct thread *t)
   t->status = THREAD_READY;
   // printf("teeeeeeeeeeeeeeeeeeeeeeeeeeeeeest ----> %p\n", (void *)(t));
   intr_set_level (old_level);
-  thread_yield();
+  
 }
 
 /* Returns the name of the running thread. */
@@ -340,6 +340,8 @@ void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
+  
+  thread_yield();
 }
 
 /* Returns the current thread's priority. */
