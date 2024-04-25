@@ -102,9 +102,6 @@ struct thread
       unsigned magic;                     /* Detects stack overflow. */
 
       /* youssef benyamine add this variable */
-      int                     cpu_recent;
-      int                       cpu_nice;
-      unsigned long int   time_for_sleep; 
       int            the_actual_priority;
       struct list the_aquired_locks_list;
       struct lock  *waiting_for_the_lock; 

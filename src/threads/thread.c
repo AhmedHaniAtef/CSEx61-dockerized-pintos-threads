@@ -349,7 +349,7 @@ thread_set_priority (int new_priority)
   if(!list_empty(&current_thread->the_aquired_locks_list))
   {
     struct list_elem *max_priority_element = list_max(&thread_current()->the_aquired_locks_list , thread_priority_max , NULL);
-    struct lock *max_priority_lock = list_entry(max_priority_element , struct lock_thread , lockElem);
+    struct lock *max_priority_lock = list_entry(max_priority_element , struct lock , lockElem);
     if(max_priority_lock->lock_priority  < new_priority)
     {
       current_thread->priority = new_priority;
@@ -616,32 +616,5 @@ bool thread_priority_max(const struct list_elem *first_element, const struct lis
 {
 	return (list_entry(first_element , struct lock , lockElem)->lockPriority) < (list_entry(second_element , struct lock , lockElem)->lockPriority);
 }
-
-void calculation_the_average_load(void)
-{
-  size_t thread_ready_s = list_size(&(ready_list));
-  the_average_load = fixed_add(int_fixed_div(int_fixed_mul(the_average_load, 59), 60), int_fixed_div(int_to_fixed(thread_ready_s + (strcmp(running_thread()->name , "idle") == 0 ? 0 : 1)) , 60));
-}
-
-void calculation_the_cpu_recent(struct thread *thr)
-{
-  int m = (fixed_divide(int_fixed_mul(the_average_load, 2) , int_fixed_add(int_fixed_mul(the_average_load , 2) , 1)));
-  (thr->cpu_recent) = int_fixed_add((fixed_multiply(m , thr->cpu_recent)) , thr->cpu_nice);
-}
-
-void calculation_the_priority(struct thread *thr)
-{
-  thr->priority = PRI_MAX - fixed_to_int_round(int_fixed_div(thr->cpu_recent, 4)) - (thr->cpu_nice * 2);
-  if(thr->priority > PRI_MAX)
-  {
-    thr->priority = PRI_MAX;
-  }
-  else if(thr->priority < PRI_MIN)
-  {
-    thr->priority = PRI_MIN;
-  }
-  else{/* NOTHING */}
-}
-
 
 /* youssef benyamine add this function */
