@@ -349,7 +349,7 @@ thread_set_priority (int new_priority)
   if(!list_empty(&current_thread->the_aquired_locks_list))
   {
     struct list_elem *max_priority_element = list_max(&thread_current()->the_aquired_locks_list , thread_priority_max , NULL);
-    struct lock *max_priority_lock = list_entry(max_priority_element , struct lock , lockElem);
+    struct lock *max_priority_lock = list_entry(max_priority_element , struct lock , list_elements);
     if(max_priority_lock->lock_priority  < new_priority)
     {
       current_thread->priority = new_priority;
