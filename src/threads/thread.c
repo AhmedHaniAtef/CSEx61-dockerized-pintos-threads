@@ -484,7 +484,7 @@ init_thread (struct thread *t, const char *name, int priority)
   ASSERT (PRI_MIN <= priority && priority <= PRI_MAX);
   ASSERT (name != NULL);
 
-  memset (t, 0, sizeof *t);
+  memset (t , 0 , sizeof *t);
   t->status = THREAD_BLOCKED;
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
@@ -614,9 +614,7 @@ uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 
 bool thread_priority_max(const struct list_elem *first_element, const struct list_elem *second_element, void *third_element)
 {
-	const struct thread *first = list_entry(first_element   , struct thread_lock , element_thread);
-  const struct thread *second = list_entry(second_element , struct thread_lock , element_thread);
-  return (first->priority) < (second->priority);
+	return (list_entry(first_element , struct lock , lockElem)->lockPriority) < (list_entry(second_element , struct lock , lockElem)->lockPriority);
 }
 
 void calculation_the_average_load(void)
