@@ -11,6 +11,7 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "threads/Fixed_Point.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -70,6 +71,7 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
+fp load_avg; //declear global variable
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -137,6 +139,27 @@ thread_tick (void)
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
+
+  if(thread_mlfqs)
+  {
+    if(t!= idle_thread){
+    running_thread()->recent_cpu = Add_fixed_point_and_int( running_thread()->recent_cpu ,1);
+    }
+
+    if(timer_ticks()%4)
+    {  
+      // loop for it
+      // cal_priority();
+    }
+    if(timer_ticks () % 100 ==0)
+    {  
+      //  loop for it
+      // cal_recent_cpu();
+      // cal_load_avg();
+
+
+    }
+  }
 }
 
 /* Prints thread statistics. */
@@ -331,6 +354,30 @@ thread_foreach (thread_action_func *func, void *aux)
     }
 }
 
+
+/* calculation multilevel feedback queue scheduler parameters */
+void
+cal_priority(struct thread *t){
+  if(t!= idle_thread)
+  {
+    return;
+  }
+  
+}
+void
+cal_recent_cpu(struct thread *t){
+    if(t!= idle_thread)
+  {
+    return;
+  }
+
+}
+void
+cal_load_avg(void){
+  
+  
+}
+
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority (int new_priority) 
@@ -349,31 +396,30 @@ thread_get_priority (void)
 void
 thread_set_nice (int nice UNUSED) 
 {
-  /* Not yet implemented. */
+  thread_current()->nice = nice;
 }
 
 /* Returns the current thread's nice value. */
 int
 thread_get_nice (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  return thread_current()->nice;
 }
 
 /* Returns 100 times the system load average. */
 int
 thread_get_load_avg (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+
+  return Convert_to_integer_to_nearest(Multiply_fixed_point_by_int(load_avg,100));
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
 int
 thread_get_recent_cpu (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  
+  return Convert_to_integer_to_nearest(Multiply_fixed_point_by_int(thread_current()->recent_cpu,100));
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.
