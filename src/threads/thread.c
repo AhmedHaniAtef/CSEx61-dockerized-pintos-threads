@@ -347,25 +347,10 @@ thread_set_priority (int new_priority)
   if(thread_mlfqs) 
     return ; 
   enum intr_level old_level;
-  ASSERT(!intr_context());
-  old_level = intr_disable();
-  struct thread* current_thread = thread_current();
-  if(!list_empty(&current_thread->the_aquired_locks_list))
+  if(thread_current() != list_max((&ready_list) , compare_priority , NULL))
   {
-    struct list_elem *max_priority_element = list_max(&thread_current()->the_aquired_locks_list , thread_priority_max , NULL);
-    struct lock *max_priority_lock = list_entry(max_priority_element , struct lock , list_elements);
-    if(max_priority_lock->lock_priority  < new_priority)
-    {
-      current_thread->priority = new_priority;
-    }
-    current_thread->the_actual_priority = new_priority;
+    thread_yield();
   }
-  else
-  {
-    current_thread->the_actual_priority = new_priority;
-    current_thread->priority = new_priority;
-  }
-  thread_yield();
   intr_set_level(old_level);
 }
 
@@ -638,14 +623,3 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
-
-/* youssef benyamine add this function */
-
-bool thread_priority_max(const struct list_elem *first_element, const struct list_elem *second_element, void *third_element)
-{
-  const struct thread *first  = list_entry(first_element , struct thread , elem);
-	const struct thread *second = list_entry(second_element , struct thread, elem);
-	return first->priority < second->priority;
-}
-
-/* youssef benyamine add this function */
