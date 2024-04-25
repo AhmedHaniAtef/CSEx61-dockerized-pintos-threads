@@ -146,14 +146,8 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
-<<<<<<< HEAD
 /* youssef benyamine add this function */
 bool thread_priority_max(const struct list_elem *first_element, const struct list_elem *second_element, void *third_element);
 /* youssef benyamine add this function */
 
 #endif /* threads/thread.h */
-=======
-
-
-#endif /* threads/thread.h */
->>>>>>> priority-scheduling
