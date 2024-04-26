@@ -24,12 +24,6 @@ test_priority_condvar (void)
   lock_init (&lock);
   cond_init (&condition);
 
-  void print_name_threads(struct thread* t, void *aux UNUSED)
-{
-  printf("Thread name                  ==> %s\n", t->name);
-  printf("Thread PRIORITY              ==> %d\n", t->priority);
-}
-
   thread_set_priority (PRI_MIN);
   for (i = 0; i < 10; i++) 
     {
@@ -41,9 +35,6 @@ test_priority_condvar (void)
 
   for (i = 0; i < 10; i++) 
     {
-      printf("====================================================\n");
-      // thread_foreach(print_name_threads, NULL);
-      printf("====================================================\n");
       lock_acquire (&lock);
       msg ("Signaling...");
       cond_signal (&condition, &lock);

@@ -24,6 +24,11 @@ typedef int tid_t;
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
 
+
+#define GREATER_THAN true
+#define SMALLER_THAN false
+typedef bool aux_compare;
+
 /* A kernel thread or user process.
 
    Each thread structure is stored in its own 4 kB page.  The
@@ -137,6 +142,8 @@ typedef void thread_action_func (struct thread *t, void *aux);
 void thread_foreach (thread_action_func *, void *);
 
 bool compare_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
+void print_ready_list(void);
+void print_list(struct list* list);
 
 int thread_get_priority (void);
 void thread_set_priority (int);

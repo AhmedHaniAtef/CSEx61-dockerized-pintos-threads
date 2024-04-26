@@ -61,15 +61,18 @@ void
 sema_down (struct semaphore *sema) 
 {
   enum intr_level old_level;
-
+  aux_compare com = GREATER_THAN;
   ASSERT (sema != NULL);
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
   while (sema->value == 0) 
     {
-      list_insert_ordered(&sema->waiters, &(thread_current ()->elem), compare_priority, NULL);
+      // printf("this is sema down\n");
+      list_insert_ordered(&sema->waiters, &(thread_current ()->elem), compare_priority, &com);
       // list_push_back (&sema->waiters, &thread_current ()->elem);
+      // print_ready_list();
+      // print_list(&sema->waiters);
       thread_block ();
     }
   sema->value--;
@@ -110,14 +113,33 @@ void
 sema_up (struct semaphore *sema) 
 {
   enum intr_level old_level;
-
+  struct thread *t;
   ASSERT (sema != NULL);
 
   old_level = intr_disable ();
   if (!list_empty (&sema->waiters)) 
-    thread_unblock (list_entry (list_pop_front (&sema->waiters),
-                                struct thread, elem));
+  {
+    if (!list_empty(&sema->waiters))
+    {
+      // printf("this is sema up\n");
+      // print_ready_list();
+      // print_list(&sema->waiters);
+    }
+    t = list_entry (list_pop_front (&sema->waiters),
+                                struct thread, elem);
+    thread_unblock (t);
+
+    if (!list_empty(&sema->waiters))
+    {
+      // printf("this is sema up two\n");
+      // print_ready_list();
+      // print_list(&sema->waiters);
+    }
+  }
+
+    
   sema->value++;
+  
   intr_set_level (old_level);
 }
 
@@ -298,7 +320,6 @@ cond_wait (struct condition *cond, struct lock *lock)
   sema_init (&waiter.semaphore, 0);
   enum intr_level old_level = intr_disable ();
   list_insert_ordered(&cond->waiters, &(waiter.elem), compare_priority, NULL);
-  intr_set_level(old_level);
   // list_push_back (&cond->waiters, &waiter.elem);
   lock_release (lock);
   sema_down (&waiter.semaphore);

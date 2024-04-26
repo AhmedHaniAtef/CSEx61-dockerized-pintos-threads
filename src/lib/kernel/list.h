@@ -171,6 +171,9 @@ void list_sort (struct list *,
                 list_less_func *, void *aux);
 void list_insert_ordered (struct list *, struct list_elem *,
                           list_less_func *, void *aux);
+typedef void list_disp_func (const struct list_elem *);
+void list_display_elements(struct list *,
+                     list_disp_func *);
 void list_unique (struct list *, struct list *duplicates,
                   list_less_func *, void *aux);
 

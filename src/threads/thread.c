@@ -235,19 +235,28 @@ void
 thread_unblock (struct thread *t) 
 {
   enum intr_level old_level;
-  if (thread_current()->status == THREAD_RUNNING)
+  aux_compare comp = GREATER_THAN;
+
+  ASSERT(!intr_context());
+  old_level = intr_disable ();
+
+  if ((thread_current ()->priority < t->priority) && (thread_current()->tid != idle_thread->tid))
   {
-    thread_yield();
+    if (intr_context()) {
+      intr_yield_on_return ();
+    } else {
+      thread_yield ();
+      // printf("thread %s yield called\n", t->name);
+    }
   }
   ASSERT (is_thread (t));
-  old_level = intr_disable ();
+
   ASSERT (t->status == THREAD_BLOCKED);
-  list_insert_ordered(&ready_list, &(t->elem), compare_priority, NULL);
+  list_insert_ordered(&ready_list, &(t->elem), compare_priority, &comp);
   // list_push_back (&ready_list, &t->elem);
   t->status = THREAD_READY;
-  // printf("teeeeeeeeeeeeeeeeeeeeeeeeeeeeeest ----> %p\n", (void *)(t));
+  thread_ticks = 4;
   intr_set_level (old_level);
-  // thread_yield();
 }
 
 /* Returns the name of the running thread. */
@@ -304,6 +313,24 @@ thread_exit (void)
   NOT_REACHED ();
 }
 
+
+void print_elem(struct list_elem* elem)
+{
+  struct thread *t= list_entry(elem, struct thread, elem);
+  printf("%s -> ", t->name);
+}
+void print_ready_list(void)
+{
+  list_display_elements(&ready_list, print_elem);
+  printf("\n");
+}
+void print_list(struct list* list)
+{
+  list_display_elements(list, print_elem);
+  printf("\n");
+}
+  
+
 /* Yields the CPU.  The current thread is not put to sleep and
    may be scheduled again immediately at the scheduler's whim. */
 void
@@ -311,12 +338,15 @@ thread_yield (void)
 {
   struct thread *cur = thread_current ();
   enum intr_level old_level;
-  
+  aux_compare com = GREATER_THAN;
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
   if (cur != idle_thread) 
-    list_insert_ordered(&ready_list, &(cur->elem), compare_priority, NULL);
+  {
+    list_insert_ordered(&ready_list, &(cur->elem), compare_priority, &com);
+  }
+    // list_insert_ordered(&ready_list, &(cur->elem), compare_priority, &com);
     // list_push_back (&ready_list, &cur->elem);
   cur->status = THREAD_READY;
   schedule ();
@@ -351,9 +381,9 @@ thread_set_priority (int new_priority)
     return ; 
   enum intr_level old_level = intr_disable();
   thread_current ()->priority = new_priority;
-  if(&(thread_current()->elem)!= list_max((&ready_list) , compare_priority , NULL))
+  aux_compare com = GREATER_THAN;
+  if(&(thread_current()->elem)!= list_max((&ready_list) , compare_priority , &com))
   {
-    printf("tesssssssssssssssssssssssssssssssssst\n");
     thread_yield();
   }
   intr_set_level(old_level);
@@ -514,7 +544,11 @@ next_thread_to_run (void)
   if (list_empty (&ready_list))
     return idle_thread;
   else
+  {
+    // aux_compare comp = GREATER_THAN;
+    // list_sort(&(ready_list), compare_priority, &comp);
     return list_entry (list_pop_front (&ready_list), struct thread, elem);
+  } 
 }
 
 /* Completes a thread switch by activating the new thread's page
@@ -583,6 +617,9 @@ schedule (void)
   struct thread *next = next_thread_to_run ();
   struct thread *prev = NULL;
 
+  struct thread *temp_cur = cur;  
+  struct thread *temp_next = next;  
+
   ASSERT (intr_get_level () == INTR_OFF);
   ASSERT (cur->status != THREAD_RUNNING);
   ASSERT (is_thread (next));
@@ -593,22 +630,46 @@ schedule (void)
   
   // enum intr_level old = intr_disable();
   // printf("====================================================\n");
-  // printf("Name of front of ready list  ==> %s\n", (list_entry(list_head(&ready_list), struct thread, elem))->name);
-  // printf("cur Thread Name              ==> %s\n", cur->name);
-  // printf("cur Thread PRI               ==> %d\n", cur->priority);
-  // printf("next Thread Name             ==> %s\n", next->name);
-  // printf("next Thread PRI              ==> %d\n", next->priority);
-  // printf("kernel_thread ticks          ==> %lli\n", kernel_ticks);
+  // if (!(list_empty(&ready_list)))
+  //   printf("Name of front of ready list  ==> %s\n", (list_entry(list_begin(&ready_list), struct thread, elem))->name);
+  // printf("real cur Thread Name         ==> %s\n", thread_current()->name);
+  // printf("real cur Thread PRI          ==> %d\n", thread_current()->priority);
+  // printf("real cur Thread address      ==> %p\n", thread_current());
+  // printf("cur Thread Name              ==> %s\n", temp_cur->name);
+  // printf("cur Thread PRI               ==> %d\n", temp_cur->priority);
+  // printf("cur Thread address           ==> %p\n", temp_cur);
+  // printf("next Thread Name             ==> %s\n", temp_next->name);
+  // printf("next Thread PRI              ==> %d\n", temp_next->priority);
+  // printf("next Thread address          ==> %p\n", temp_next);
+  // print_ready_list();
   // thread_foreach(print_name_threads, NULL);
   // intr_set_level(old);
 }
 
-bool compare_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+bool compare_priority(const struct list_elem *a, const struct list_elem *b, void *aux)
 {
-  struct thread *a_thread = list_entry(a, struct thread, elem);
-  struct thread *b_thread = list_entry(b, struct thread, elem);
-
-  return a_thread->priority > b_thread->priority; 
+  if ((a != NULL) && (b != NULL))
+  {
+    bool test;
+    struct thread *a_thread = list_entry(a, struct thread, elem);
+    struct thread *b_thread = list_entry(b, struct thread, elem);
+    if (*((bool *)aux) == GREATER_THAN)
+    {
+      test = a_thread->priority > b_thread->priority;
+    }
+    else if (*((bool *)aux) == SMALLER_THAN)
+    {
+      test = a_thread->priority < b_thread->priority;
+    }
+    // printf("a_thread -> name : %s -> priority : %d\n", a_thread->name, a_thread->priority);
+    // printf("b_thread -> name : %s -> priority : %d\n", b_thread->name, b_thread->priority);
+    // printf("bool = %d\n", test);
+    return test;
+  }
+  else
+  {
+    return false;
+  }
 }
 
 /* Returns a tid to use for a new thread. */
