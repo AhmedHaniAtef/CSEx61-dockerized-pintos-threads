@@ -460,18 +460,7 @@ list_insert_ordered (struct list *list, struct list_elem *elem,
 
 
 
-void
-list_display_elements(struct list *list,
-                     list_disp_func *less)
-{
-  struct list_elem *e;
 
-  ASSERT (list != NULL);
-  ASSERT (less != NULL);
-
-  for (e = list_begin (list); e != list_end (list); e = list_next (e))
-    less (e);
-}
 
 
 /* Iterates through LIST and removes all but the first in each

@@ -186,6 +186,7 @@ thread_create (const char *name, int priority,
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
   
+  enum intr_level old_level = intr_disable();
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
   kf->eip = NULL;
@@ -200,10 +201,16 @@ thread_create (const char *name, int priority,
   sf = alloc_frame (t, sizeof *sf);
   sf->eip = switch_entry;
   sf->ebp = 0;
-  
+  intr_set_level(old_level);
+
   /* Add to run queue. */
   thread_unblock (t);
   
+  if (intr_context())
+    intr_yield_on_return();
+  else
+    thread_yield();
+
   return tid;
 }
 
@@ -240,15 +247,6 @@ thread_unblock (struct thread *t)
   ASSERT(!intr_context());
   old_level = intr_disable ();
 
-  if ((thread_current ()->priority < t->priority) && (thread_current()->tid != idle_thread->tid))
-  {
-    if (intr_context()) {
-      intr_yield_on_return ();
-    } else {
-      thread_yield ();
-      // printf("thread %s yield called\n", t->name);
-    }
-  }
   ASSERT (is_thread (t));
 
   ASSERT (t->status == THREAD_BLOCKED);
@@ -314,10 +312,44 @@ thread_exit (void)
 }
 
 
-void print_elem(struct list_elem* elem)
+void
+list_display_elements(struct list *list,
+                     list_disp_func *less)
+{
+  struct list_elem *e;
+
+  ASSERT (list != NULL);
+  ASSERT (less != NULL);
+
+  if (!list_empty(list))
+  {
+    e = list_head (list);
+    if (e->next != list_tail(list))
+    {
+      for (e = list_begin (list); e != list_end (list);)
+      {
+        if(!(e != NULL && e->prev == NULL && e->next != NULL))
+        {
+          less(e);
+        }
+        e = e->next;
+        if (e == list_tail(list))
+          break;
+      }
+    }
+  }
+}
+
+
+
+
+void print_elem(const struct list_elem* elem);
+
+void print_elem(const struct list_elem* elem)
 {
   struct thread *t= list_entry(elem, struct thread, elem);
-  printf("%s -> ", t->name);
+  // if ((t->tid != idle_thread->tid) )
+    printf("%s -> ", t->name);
 }
 void print_ready_list(void)
 {
@@ -327,7 +359,7 @@ void print_ready_list(void)
 void print_list(struct list* list)
 {
   list_display_elements(list, print_elem);
-  printf("\n");
+  printf("not test\n");
 }
   
 
@@ -661,9 +693,6 @@ bool compare_priority(const struct list_elem *a, const struct list_elem *b, void
     {
       test = a_thread->priority < b_thread->priority;
     }
-    // printf("a_thread -> name : %s -> priority : %d\n", a_thread->name, a_thread->priority);
-    // printf("b_thread -> name : %s -> priority : %d\n", b_thread->name, b_thread->priority);
-    // printf("bool = %d\n", test);
     return test;
   }
   else

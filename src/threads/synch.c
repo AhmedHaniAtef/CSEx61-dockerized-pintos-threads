@@ -70,6 +70,7 @@ sema_down (struct semaphore *sema)
     {
       // printf("this is sema down\n");
       list_insert_ordered(&sema->waiters, &(thread_current ()->elem), compare_priority, &com);
+      // printf("test000000000000000000\n");;
       // list_push_back (&sema->waiters, &thread_current ()->elem);
       // print_ready_list();
       // print_list(&sema->waiters);
@@ -119,28 +120,16 @@ sema_up (struct semaphore *sema)
   old_level = intr_disable ();
   if (!list_empty (&sema->waiters)) 
   {
-    if (!list_empty(&sema->waiters))
-    {
-      // printf("this is sema up\n");
-      // print_ready_list();
-      // print_list(&sema->waiters);
-    }
     t = list_entry (list_pop_front (&sema->waiters),
                                 struct thread, elem);
     thread_unblock (t);
-
-    if (!list_empty(&sema->waiters))
-    {
-      // printf("this is sema up two\n");
-      // print_ready_list();
-      // print_list(&sema->waiters);
-    }
   }
-
-    
   sema->value++;
-  
   intr_set_level (old_level);
+  if (intr_context())
+    intr_yield_on_return();
+  else
+    thread_yield();
 }
 
 static void sema_test_helper (void *sema_);
@@ -274,6 +263,7 @@ struct semaphore_elem
   {
     struct list_elem elem;              /* List element. */
     struct semaphore semaphore;         /* This semaphore. */
+    struct thread *waited_thread;
   };
 
 /* Initializes condition variable COND.  A condition variable
@@ -286,6 +276,13 @@ cond_init (struct condition *cond)
 
   list_init (&cond->waiters);
 }
+
+static void
+cond_semaphore_init (struct semaphore_elem *waiter);
+
+bool cond_compare_priority(const struct list_elem *a, const struct list_elem *b, void *aux);
+
+
 
 /* Atomically releases LOCK and waits for COND to be signaled by
    some other piece of code.  After COND is signaled, LOCK is
@@ -311,20 +308,54 @@ void
 cond_wait (struct condition *cond, struct lock *lock) 
 {
   struct semaphore_elem waiter;
-
+  aux_compare com = GREATER_THAN;
   ASSERT (cond != NULL);
   ASSERT (lock != NULL);
   ASSERT (!intr_context ());
   ASSERT (lock_held_by_current_thread (lock));
   
+  // enum intr_level old_level = intr_disable();
   sema_init (&waiter.semaphore, 0);
-  enum intr_level old_level = intr_disable ();
-  list_insert_ordered(&cond->waiters, &(waiter.elem), compare_priority, NULL);
+  cond_semaphore_init(&waiter);
+  list_insert_ordered(&cond->waiters, &(waiter.elem), cond_compare_priority, &com);
   // list_push_back (&cond->waiters, &waiter.elem);
+  // print_list(&cond->waiters);
   lock_release (lock);
+  // intr_set_level(old_level);
   sema_down (&waiter.semaphore);
   lock_acquire (lock);
-  intr_set_level(old_level);
+}
+
+static void
+cond_semaphore_init (struct semaphore_elem *waiter)
+{
+  struct thread *t = thread_current();
+  waiter->waited_thread = t;
+}
+
+
+
+bool cond_compare_priority(const struct list_elem *a, const struct list_elem *b, void *aux)
+{
+  if ((a != NULL) && (b != NULL))
+  {
+    bool test;
+    struct semaphore_elem *a_thread = list_entry(a, struct semaphore_elem, elem);
+    struct semaphore_elem *b_thread = list_entry(b, struct semaphore_elem, elem);
+    if (*((bool *)aux) == GREATER_THAN)
+    {
+      test = a_thread->waited_thread->priority > b_thread->waited_thread->priority;
+    }
+    else if (*((bool *)aux) == SMALLER_THAN)
+    {
+      test = a_thread->waited_thread->priority < b_thread->waited_thread->priority;
+    }
+    return test;
+  }
+  else
+  {
+    return false;
+  }
 }
 
 /* If any threads are waiting on COND (protected by LOCK), then
@@ -343,8 +374,12 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED)
   ASSERT (lock_held_by_current_thread (lock));
 
   if (!list_empty (&cond->waiters)) 
-    sema_up (&list_entry (list_pop_front (&cond->waiters),
-                          struct semaphore_elem, elem)->semaphore);
+  {
+    // aux_compare com = GREATER_THAN;
+    // list_sort(&(cond->waiters), compare_priority, &com);
+    sema_up (&(list_entry (list_pop_front (&cond->waiters), struct semaphore_elem, elem) -> semaphore));
+
+  }
 }
 
 /* Wakes up all threads, if any, waiting on COND (protected by
