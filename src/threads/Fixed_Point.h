@@ -2,8 +2,6 @@
 
 typedef int fp;
  
-#define q 14
-#define f (1 << q) //f=2^14 = .....
 
 // x and y are fixed-point numbers, n is an integer
 
