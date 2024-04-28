@@ -94,7 +94,9 @@ struct thread
       uint8_t *stack;                     /* Saved stack pointer. */
       int priority;                       /* Priority. */
       struct list_elem allelem;           /* List element for all threads list. */
-
+      int original_priority;
+      struct lock *blocked_lock;
+      struct list aquired_locks;
       /* Shared between thread.c and synch.c. */
       struct list_elem elem;              /* List element. */
 
@@ -105,12 +107,6 @@ struct thread
       
       /* Owned by thread.c. */
       unsigned magic;                     /* Detects stack overflow. */
-
-      /* youssef benyamine add this variable */
-      int            the_actual_priority;
-      struct list the_aquired_locks_list;
-      struct lock  *waiting_for_the_lock; 
-      /* youssef benyamine add this variable */
   };
 
 /* If false (default), use round-robin scheduler.
@@ -142,8 +138,6 @@ typedef void thread_action_func (struct thread *t, void *aux);
 void thread_foreach (thread_action_func *, void *);
 
 bool compare_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
-void print_ready_list(void);
-void print_list(struct list* list);
 
 int thread_get_priority (void);
 void thread_set_priority (int);
