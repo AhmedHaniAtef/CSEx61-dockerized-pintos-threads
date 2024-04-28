@@ -73,6 +73,7 @@ void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 fp load_avg; //declear global variable
 
+
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
    general and it is possible in this case only because loader.S
@@ -158,8 +159,6 @@ thread_tick (void)
       
        thread_foreach(cal_recent_cpu, NULL);
        cal_load_avg();
-
-
     }
   }
 }
@@ -191,52 +190,50 @@ tid_t
 thread_create (const char *name, int priority,
                thread_func *function, void *aux) 
 {
+  enum intr_level old_level = intr_disable();
   struct thread *t;
   struct kernel_thread_frame *kf;
   struct switch_entry_frame *ef;
   struct switch_threads_frame *sf;
+
   tid_t tid;
   
   ASSERT (function != NULL);
-
+  
   /* Allocate thread. */
   t = palloc_get_page (PAL_ZERO);
+  
   if (t == NULL)
     return TID_ERROR;
-
+  
   /* Initialize thread. */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
-
+  
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
   kf->eip = NULL;
   kf->function = function;
   kf->aux = aux;
-
+  
   /* Stack frame for switch_entry(). */
   ef = alloc_frame (t, sizeof *ef);
   ef->eip = (void (*) (void)) kernel_thread;
-
+  
   /* Stack frame for switch_threads(). */
   sf = alloc_frame (t, sizeof *sf);
   sf->eip = switch_entry;
   sf->ebp = 0;
+  
 
   /* Add to run queue. */
   thread_unblock (t);
-
-  // if (thread_mlfqs)
-  //   {
-  //       t->nice = 0;
-  //       t->priority = PRI_MAX;
-  //       t->recent_cpu = 0;
-  //   }
-  //   else
-  //   {
-  //       t->priority = priority ;
-  //   }
-
+  
+  if (intr_context())
+    intr_yield_on_return();
+  else
+    thread_yield();
+  intr_set_level(old_level);
   return tid;
 }
 
@@ -268,12 +265,15 @@ void
 thread_unblock (struct thread *t) 
 {
   enum intr_level old_level;
+  aux_compare comp = GREATER_THAN;
+
+  ASSERT(!intr_context());
+  old_level = intr_disable ();
 
   ASSERT (is_thread (t));
 
-  old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+  list_insert_ordered(&ready_list, &(t->elem), compare_priority, &comp);
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -332,19 +332,23 @@ thread_exit (void)
   NOT_REACHED ();
 }
 
+
+
 /* Yields the CPU.  The current thread is not put to sleep and
    may be scheduled again immediately at the scheduler's whim. */
 void
 thread_yield (void) 
 {
+  enum intr_level old_level = intr_disable ();
   struct thread *cur = thread_current ();
-  enum intr_level old_level;
-  
+  aux_compare com = GREATER_THAN;
   ASSERT (!intr_context ());
 
-  old_level = intr_disable ();
   if (cur != idle_thread) 
+  {
     list_push_back (&ready_list, &cur->elem);
+    list_sort(&ready_list, compare_priority, &com);
+  }
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -367,6 +371,9 @@ thread_foreach (thread_action_func *func, void *aux)
     }
 }
 
+
+/* priority = priority max - (recent cpu / 4) - (nice * 2) */
+/* then we want to calculate this require */ 
 
 /* calculation multilevel feedback queue scheduler parameters */
 void
@@ -411,11 +418,33 @@ cal_load_avg(void){
   load_avg = Add_fixed_point_numbers( Multiply_fixed_point_numbers(v1,load_avg),Multiply_fixed_point_by_int(v2,ready_threads));
 }
 
+
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority (int new_priority) 
 {
-  thread_current ()->priority = new_priority;
+  enum intr_level old_level = intr_disable();
+  if(thread_mlfqs) 
+  {
+    intr_set_level(old_level);
+    return; 
+  }
+    
+   if ((thread_current()->priority > new_priority))
+  {
+    if (list_empty(&thread_current()->aquired_locks))
+      thread_current()->priority = new_priority;
+  }
+  thread_current()->original_priority = new_priority;
+  aux_compare com = GREATER_THAN;
+  if(&(thread_current()->elem)!= list_max((&ready_list) , compare_priority , &com))
+  {
+    if (intr_context())
+      intr_yield_on_return();
+    else
+      thread_yield();
+  }
+  intr_set_level(old_level);
 }
 
 /* Returns the current thread's priority. */
@@ -540,12 +569,15 @@ init_thread (struct thread *t, const char *name, int priority)
   ASSERT (PRI_MIN <= priority && priority <= PRI_MAX);
   ASSERT (name != NULL);
 
-  memset (t, 0, sizeof *t);
+  memset (t , 0 , sizeof *t);
   t->status = THREAD_BLOCKED;
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
+  t->original_priority = priority;
   t->magic = THREAD_MAGIC;
+  t->blocked_lock = NULL;
+  list_init (&t->aquired_locks);
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
@@ -576,7 +608,11 @@ next_thread_to_run (void)
   if (list_empty (&ready_list))
     return idle_thread;
   else
+  {
+    aux_compare comp = GREATER_THAN;
+    list_sort(&(ready_list), compare_priority, &comp);
     return list_entry (list_pop_front (&ready_list), struct thread, elem);
+  } 
 }
 
 /* Completes a thread switch by activating the new thread's page
@@ -625,6 +661,7 @@ thread_schedule_tail (struct thread *prev)
     }
 }
 
+
 /* Schedules a new process.  At entry, interrupts must be off and
    the running process's state must have been changed from
    running to some other state.  This function finds another
@@ -646,6 +683,29 @@ schedule (void)
   if (cur != next)
     prev = switch_threads (cur, next);
   thread_schedule_tail (prev);
+}
+
+bool compare_priority(const struct list_elem *a, const struct list_elem *b, void *aux)
+{
+  if ((a != NULL) && (b != NULL))
+  {
+    bool test;
+    struct thread *a_thread = list_entry(a, struct thread, elem);
+    struct thread *b_thread = list_entry(b, struct thread, elem);
+    if (*((bool *)aux) == GREATER_THAN)
+    {
+      test = a_thread->priority > b_thread->priority;
+    }
+    else if (*((bool *)aux) == SMALLER_THAN)
+    {
+      test = a_thread->priority < b_thread->priority;
+    }
+    return test;
+  }
+  else
+  {
+    return false;
+  }
 }
 
 /* Returns a tid to use for a new thread. */
