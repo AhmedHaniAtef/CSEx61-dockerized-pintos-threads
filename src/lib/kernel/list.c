@@ -458,21 +458,6 @@ list_insert_ordered (struct list *list, struct list_elem *elem,
   return list_insert (e, elem);
 }
 
-void
-list_reorder (struct list_elem *elem,
-                     list_less_func *less, void *aux UNUSED)
-{
-  struct list_elem *e;
-  e = elem->prev;
-  e = elem->next;
-  if (is_tail(e))
-    return;
-  list_remove(elem);
-    while (less(e, elem, aux) && !is_tail(e)) 
-      e = e->next;
-  list_insert(e, elem);
-}
-
 /* Iterates through LIST and removes all but the first in each
    set of adjacent elements that are equal according to LESS
    given auxiliary data AUX.  If DUPLICATES is non-null, then the

@@ -24,7 +24,6 @@ test_priority_sema (void)
   thread_set_priority (PRI_MIN);
   for (i = 0; i < 10; i++) 
     {
-      // msg ("main again .");
       int priority = PRI_DEFAULT - (i + 3) % 10 - 1;
       char name[16];
       snprintf (name, sizeof name, "priority %d", priority);
@@ -34,8 +33,6 @@ test_priority_sema (void)
   for (i = 0; i < 10; i++) 
     {
       sema_up (&sema);
-      // msg ("FUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUCK TWO.");
-      // print_ready_list();
       msg ("Back in main thread."); 
     }
 }
@@ -43,7 +40,6 @@ test_priority_sema (void)
 static void
 priority_sema_thread (void *aux UNUSED) 
 {
-  // msg ("Thread %s blocked.", thread_name ());
   sema_down (&sema);
   msg ("Thread %s woke up.", thread_name ());
 }
