@@ -70,7 +70,10 @@ sema_down (struct semaphore *sema)
   old_level = intr_disable ();
   while (sema->value == 0) 
     {
-      list_insert_ordered(&sema->waiters, &(thread_current ()->elem), compare_priority, &com);
+      if (thread_mlfqs)
+        list_push_back (&sema->waiters, &thread_current ()->elem);
+      else
+        list_insert_ordered(&sema->waiters, &(thread_current ()->elem), compare_priority, &com);
       thread_block ();
     }
   sema->value--;
@@ -117,18 +120,25 @@ sema_up (struct semaphore *sema)
   old_level = intr_disable ();
   if (!list_empty (&sema->waiters)) 
   {
-    aux_compare com = GREATER_THAN;
-    list_sort((&sema->waiters), compare_priority, &com);
+    if (!thread_mlfqs)
+    {
+      aux_compare com = GREATER_THAN;
+      list_sort((&sema->waiters), compare_priority, &com);
+    }
     t = list_entry (list_pop_front (&sema->waiters),
                                 struct thread, elem);
     thread_unblock (t);
   }
   sema->value++;
   intr_set_level (old_level);
-  if (intr_context())
-    intr_yield_on_return();
-  else
-    thread_yield();
+
+  if (!thread_mlfqs)
+  {
+    if (intr_context())
+      intr_yield_on_return();
+    else
+      thread_yield();
+  }
 }
 
 static void sema_test_helper (void *sema_);
@@ -210,21 +220,30 @@ lock_acquire (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
-  enum intr_level old_level = intr_disable();
-  struct thread *cur = thread_current();
-  cur->blocked_lock = lock;
-  if (lock->holder != NULL)
+
+  if (!thread_mlfqs)
   {
-    if (cur->priority > lock->holder->priority)
+    enum intr_level old_level = intr_disable();
+    struct thread *cur = thread_current();
+    cur->blocked_lock = lock;
+    if (lock->holder != NULL)
     {
-      donated_priority(lock->holder, cur->priority);
+      if (cur->priority > lock->holder->priority)
+      {
+        donated_priority(lock->holder, cur->priority);
+      }
     }
+    sema_down (&lock->semaphore);
+    list_push_front(&cur->aquired_locks , &lock->elem);
+    cur->blocked_lock = NULL;
+    lock->holder = cur;
+    intr_set_level (old_level);
   }
-  sema_down (&lock->semaphore);
-  list_push_front(&cur->aquired_locks , &lock->elem);
-  cur->blocked_lock = NULL;
-  lock->holder = cur;
-  intr_set_level (old_level);
+  else
+  {
+    sema_down (&lock->semaphore);
+    lock->holder = thread_current ();
+  }
 }
 
 
@@ -298,15 +317,24 @@ lock_release (struct lock *lock)
 {
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
-  list_remove(&lock->elem);
-  lock->holder = NULL;
-  sema_up (&lock->semaphore);
-  struct thread *cur = thread_current();
-  donated_priority(cur, cur->original_priority);
-  if (intr_context()) 
-    intr_yield_on_return ();
-  else 
-    thread_yield ();
+  
+  if (!thread_mlfqs)
+  {
+    list_remove(&lock->elem);
+    lock->holder = NULL;
+    sema_up (&lock->semaphore);
+    struct thread *cur = thread_current();
+    donated_priority(cur, cur->original_priority);
+    if (intr_context()) 
+      intr_yield_on_return ();
+    else 
+      thread_yield ();
+  }
+  else
+  {
+    lock->holder = NULL;
+    sema_up (&lock->semaphore);
+  }
 }
 
 /* Returns true if the current thread holds LOCK, false
@@ -376,12 +404,23 @@ cond_wait (struct condition *cond, struct lock *lock)
   ASSERT (!intr_context ());
   ASSERT (lock_held_by_current_thread (lock));
   
-  sema_init (&waiter.semaphore, 0);
-  cond_semaphore_init(&waiter);
-  list_insert_ordered(&cond->waiters, &(waiter.elem), cond_compare_priority, &com);
-  lock_release (lock);
-  sema_down (&waiter.semaphore);
-  lock_acquire (lock);
+  if (!thread_mlfqs)
+  {
+    sema_init (&waiter.semaphore, 0);
+    cond_semaphore_init(&waiter);
+    list_insert_ordered(&cond->waiters, &(waiter.elem), cond_compare_priority, &com);
+    lock_release (lock);
+    sema_down (&waiter.semaphore);
+    lock_acquire (lock);
+  }
+  else
+  {
+    sema_init (&waiter.semaphore, 0);
+    list_push_back (&cond->waiters, &waiter.elem);
+    lock_release (lock);
+    sema_down (&waiter.semaphore);
+    lock_acquire (lock);
+  }
 }
 
 static void

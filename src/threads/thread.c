@@ -229,10 +229,13 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
   
-  if (intr_context())
-    intr_yield_on_return();
-  else
-    thread_yield();
+  if (!thread_mlfqs)
+  {
+    if (intr_context())
+      intr_yield_on_return();
+    else
+      thread_yield();
+  }
   intr_set_level(old_level);
   return tid;
 }
@@ -273,7 +276,10 @@ thread_unblock (struct thread *t)
   ASSERT (is_thread (t));
 
   ASSERT (t->status == THREAD_BLOCKED);
-  list_insert_ordered(&ready_list, &(t->elem), compare_priority, &comp);
+  if (!thread_mlfqs)
+    list_insert_ordered(&ready_list, &(t->elem), compare_priority, &comp);
+  else
+    list_push_back (&ready_list, &t->elem);
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -347,7 +353,8 @@ thread_yield (void)
   if (cur != idle_thread) 
   {
     list_push_back (&ready_list, &cur->elem);
-    list_sort(&ready_list, compare_priority, &com);
+    if (!thread_mlfqs)
+      list_sort(&ready_list, compare_priority, &com);
   }
   cur->status = THREAD_READY;
   schedule ();
@@ -577,7 +584,8 @@ init_thread (struct thread *t, const char *name, int priority)
   t->original_priority = priority;
   t->magic = THREAD_MAGIC;
   t->blocked_lock = NULL;
-  list_init (&t->aquired_locks);
+  if (!thread_mlfqs)
+    list_init (&t->aquired_locks);
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
@@ -609,8 +617,11 @@ next_thread_to_run (void)
     return idle_thread;
   else
   {
-    aux_compare comp = GREATER_THAN;
-    list_sort(&(ready_list), compare_priority, &comp);
+    if (!thread_mlfqs)
+    {
+      aux_compare comp = GREATER_THAN;
+      list_sort(&(ready_list), compare_priority, &comp);
+    }
     return list_entry (list_pop_front (&ready_list), struct thread, elem);
   } 
 }
