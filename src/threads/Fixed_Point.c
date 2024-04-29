@@ -37,15 +37,15 @@ fp Subtract_fixed_point_numbers(fp x, fp y){
 }
 
 fp Add_fixed_point_and_int(fp x ,int n){
-    return( x + n * f);
+    return( x + (n * f));
 }
 
 fp subtract_int_from_fixed_point(fp x ,int n){
-     return(x - n * f);
+     return(x - (n * f));
 }
 
 fp Multiply_fixed_point_numbers(fp x ,fp y){
-      return ((long int)(x) * y / f); //////((int64_t) x) * y / f
+      return ((long long)(x) * y / f); //////((int64_t) x) * y / f
 }
 
 fp Multiply_fixed_point_by_int(fp x ,int n){
@@ -53,7 +53,7 @@ fp Multiply_fixed_point_by_int(fp x ,int n){
 }
 
 fp Divide_fixed_point_numbers(fp x ,fp y){
-       	return ((long int) (x) * f / y);///////////////(int64_t) x) * f / y
+       	return ((long long) (x) * f / y);///////////////(int64_t) x) * f / y
 }
 
 fp Divide_fixed_point_by_int(fp x ,int n){

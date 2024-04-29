@@ -162,8 +162,8 @@ thread_tick (void)
     {  
       
        cal_load_avg();
-       thread_foreach(cal_recent_cpu, NULL);
-       thread_foreach(cal_priority,NULL);
+      //  thread_foreach(cal_recent_cpu, NULL);
+      //  thread_foreach(cal_priority,NULL);
     }
   }
 }
@@ -358,7 +358,7 @@ thread_yield (void)
   enum intr_level old_level = intr_disable ();
   struct thread *cur = thread_current ();
   aux_compare com = GREATER_THAN;
-  ASSERT (!intr_context ());
+  // ASSERT (!intr_context ());
 
   if (cur != idle_thread) 
   {
@@ -399,7 +399,10 @@ cal_priority(struct thread *t){
   {
     return;
   }
-   t->priority = PRI_MAX - Convert_to_integer_to_nearest(Divide_fixed_point_by_int(t->recent_cpu, 4)) - (t->nice * 2);
+  fp c1 = Divide_fixed_point_by_int(t->recent_cpu, 4);
+  fp c2 = Convert_to_fixed_point((t->nice * 2));
+  fp c3 = Subtract_fixed_point_numbers(c1,c2);
+   t->priority = PRI_MAX - Convert_to_integer_to_nearest(c3);
    
     if (t->priority > PRI_MAX){
          t->priority = PRI_MAX;
@@ -410,7 +413,10 @@ cal_priority(struct thread *t){
         t->priority = PRI_MIN;
     }
     if (t->priority > thread_current()->priority)
-    thread_yield();
+    if (intr_context())
+      intr_yield_on_return();
+    else
+      thread_yield();
 }
 void
 cal_recent_cpu(struct thread *t){
@@ -418,22 +424,33 @@ cal_recent_cpu(struct thread *t){
   {
     return;
   }
-   fp d= Divide_fixed_point_numbers(Multiply_fixed_point_by_int(load_avg,2),Add_fixed_point_and_int(Multiply_fixed_point_by_int(load_avg,2),1));
-   t->recent_cpu = Add_fixed_point_and_int(Multiply_fixed_point_numbers(d,t->recent_cpu),t->nice);
+  fp c1 = Multiply_fixed_point_by_int(load_avg,2);
+  fp c2 = Multiply_fixed_point_by_int(load_avg,2);
+  c2 = Add_fixed_point_and_int(c2,1);
+  
+   fp d= Divide_fixed_point_numbers(c1,c2);
+  c1 = Multiply_fixed_point_numbers(d,t->recent_cpu);
+   t->recent_cpu = Add_fixed_point_and_int(c1,t->nice);
   //  cal_priority(t);
 }
 void
 cal_load_avg(void){
-  
-  fp v1= Divide_fixed_point_numbers(Convert_to_fixed_point(59),Convert_to_fixed_point(60));
-  fp v2= Divide_fixed_point_numbers(Convert_to_fixed_point(1),Convert_to_fixed_point(60));
+  fp c1 = Convert_to_fixed_point(59);
+  fp c2 = Convert_to_fixed_point(60);
+  fp v1= Divide_fixed_point_numbers(c1,c2);
+  c1 = Convert_to_fixed_point(1);
+  c2 = Convert_to_fixed_point(60);
+  fp v2= Divide_fixed_point_numbers(c1,c2);
+  // printf("v2 ===> %d\n", v2);
   size_t ready_threads;
   ready_threads = list_size(&(ready_list));
   if(thread_current()!=idle_thread){
-    ready_threads = ready_threads+1;
+    ready_threads = ready_threads + 1;
   }
 
-  load_avg = Add_fixed_point_numbers( Multiply_fixed_point_numbers(v1,load_avg),Multiply_fixed_point_by_int(v2,ready_threads));
+  c1 = Multiply_fixed_point_numbers(v1,load_avg);
+  c2 = Multiply_fixed_point_by_int(v2,ready_threads);
+  load_avg = Add_fixed_point_numbers(c1,c2);
 }
 
 
