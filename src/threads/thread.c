@@ -400,7 +400,7 @@ cal_priority(struct thread *t){
   {
     return;
   }
-   t->priority = PRI_MAX - Convert_to_integer_to_nearest(Divide_fixed_point_by_int(t->recent_cpu, 4)) - (t->nice * 2);
+   t->priority = PRI_MAX - Convert_to_integer_to_nearest(subtract_int_from_fixed_point(Divide_fixed_point_by_int(t->recent_cpu, 4) , (t->nice * 2)));
    
     if (t->priority > PRI_MAX){
          t->priority = PRI_MAX;
