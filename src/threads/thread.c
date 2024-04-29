@@ -144,8 +144,6 @@ thread_tick (void)
     kernel_ticks++;
 
   /* Enforce preemption. */
-  if (++thread_ticks >= TIME_SLICE)
-    intr_yield_on_return ();
 
   if(thread_mlfqs)
   {
@@ -153,18 +151,22 @@ thread_tick (void)
     thread_current()->recent_cpu = Add_fixed_point_and_int( thread_current()->recent_cpu ,1);
     }
 
+    if(timer_ticks () % 100 ==0) //TIMER_FREQ = 100
+    {  
+      thread_foreach(cal_recent_cpu, NULL);
+      cal_load_avg();
+      thread_foreach(cal_priority,NULL);
+       
+    }
+
     if(timer_ticks()%4 ==0 )
     {  
        thread_foreach(cal_priority, NULL);
     }
-   
-    if(timer_ticks () % 100 ==0) //TIMER_FREQ = 100
-    {  
-      
-       cal_load_avg();
-      //  thread_foreach(cal_recent_cpu, NULL);
-      //  thread_foreach(cal_priority,NULL);
-    }
+
+      if (++thread_ticks >= TIME_SLICE)
+        intr_yield_on_return ();
+
   }
 }
 
