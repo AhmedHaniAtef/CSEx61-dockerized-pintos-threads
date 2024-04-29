@@ -216,7 +216,7 @@ thread_create (const char *name, int priority,
   if(thread_mlfqs)
   {
     t->nice = thread_current()->nice;
-    t->recent_cpu = thread-thread_current()->recent_cpu;
+    t->recent_cpu = thread_current()->recent_cpu;
   }
   tid = t->tid = allocate_tid ();
   
