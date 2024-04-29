@@ -153,10 +153,9 @@ thread_tick (void)
 
     if(timer_ticks () % 100 ==0) //TIMER_FREQ = 100
     {  
-      thread_foreach(cal_recent_cpu, NULL);
       cal_load_avg();
       thread_foreach(cal_priority,NULL);
-       
+      thread_foreach(cal_recent_cpu, NULL);
     }
 
     if(timer_ticks()%4 ==0 )
@@ -401,10 +400,7 @@ cal_priority(struct thread *t){
   {
     return;
   }
-  fp c1 = Divide_fixed_point_by_int(t->recent_cpu, 4);
-  fp c2 = Convert_to_fixed_point((t->nice * 2));
-  fp c3 = Subtract_fixed_point_numbers(c1,c2);
-   t->priority = PRI_MAX - Convert_to_integer_to_nearest(c3);
+   t->priority = PRI_MAX - Convert_to_integer_to_nearest(Divide_fixed_point_by_int(t->recent_cpu, 4)) - (t->nice * 2);
    
     if (t->priority > PRI_MAX){
          t->priority = PRI_MAX;
@@ -426,13 +422,9 @@ cal_recent_cpu(struct thread *t){
   {
     return;
   }
-  fp c1 = Multiply_fixed_point_by_int(load_avg,2);
-  fp c2 = Multiply_fixed_point_by_int(load_avg,2);
-  c2 = Add_fixed_point_and_int(c2,1);
-  
-   fp d= Divide_fixed_point_numbers(c1,c2);
-  c1 = Multiply_fixed_point_numbers(d,t->recent_cpu);
-   t->recent_cpu = Add_fixed_point_and_int(c1,t->nice);
+  fp d= Divide_fixed_point_numbers(Multiply_fixed_point_by_int(load_avg,2),Add_fixed_point_and_int(Multiply_fixed_point_by_int(load_avg,2),1));
+  t->recent_cpu = Add_fixed_point_and_int(Multiply_fixed_point_numbers(d,t->recent_cpu),t->nice);
+  cal_priority(t);
   //  cal_priority(t);
 }
 void
