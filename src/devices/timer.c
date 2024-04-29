@@ -185,9 +185,11 @@ timer_print_stats (void)
 static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
+  enum intr_level oldLevel = intr_disable();
   ticks++;
   thread_tick ();
   wakeThreadFromSleep();
+  intr_set_level(oldLevel);
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
@@ -271,10 +273,9 @@ static void putThreadToSleep(int64_t ticksToSleep)
     // PANIC("NEGATIVE TICKS");
     return;
   }
+  enum intr_level oldLevel = intr_disable();
   struct thread *current = thread_current ();
-  enum intr_level oldLevel ;
   current->NumberOfSleepingTicks = ticksToSleep + timer_ticks();
-  oldLevel = intr_disable();
   // printf("Thread %s is going to sleep for %d ticks\n",current->name, ticksToSleep);
   list_insert_ordered(&sleepList, &current->elem, compareThreadTicks, NULL);
   thread_block();

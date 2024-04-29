@@ -96,14 +96,17 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
+
    
-   load_avg = 0;///////////////////////////////////////////////
+   load_avg = Convert_to_fixed_point(0);///////////////////////////////////////////////
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
+  initial_thread->nice = 0;
+  initial_thread->recent_cpu = 0;
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -147,7 +150,7 @@ thread_tick (void)
   if(thread_mlfqs)
   {
     if(t!= idle_thread){
-    running_thread()->recent_cpu = Add_fixed_point_and_int( running_thread()->recent_cpu ,1);
+    thread_current()->recent_cpu = Add_fixed_point_and_int( thread_current()->recent_cpu ,1);
     }
 
     if(timer_ticks()%4 ==0 )
@@ -158,8 +161,9 @@ thread_tick (void)
     if(timer_ticks () % 100 ==0) //TIMER_FREQ = 100
     {  
       
-       thread_foreach(cal_recent_cpu, NULL);
        cal_load_avg();
+       thread_foreach(cal_recent_cpu, NULL);
+       thread_foreach(cal_priority,NULL);
     }
   }
 }
@@ -209,6 +213,11 @@ thread_create (const char *name, int priority,
   
   /* Initialize thread. */
   init_thread (t, name, priority);
+  if(thread_mlfqs)
+  {
+    t->nice = thread_current()->nice;
+    t->recent_cpu = thread-thread_current()->recent_cpu;
+  }
   tid = t->tid = allocate_tid ();
   
   /* Stack frame for kernel_thread(). */
@@ -271,7 +280,7 @@ thread_unblock (struct thread *t)
   enum intr_level old_level;
   aux_compare comp = GREATER_THAN;
 
-  ASSERT(!intr_context());
+  // ASSERT(!intr_context());
   old_level = intr_disable ();
 
   ASSERT (is_thread (t));
@@ -400,7 +409,8 @@ cal_priority(struct thread *t){
     {
         t->priority = PRI_MIN;
     }
-  
+    if (t->priority > thread_current()->priority)
+    thread_yield();
 }
 void
 cal_recent_cpu(struct thread *t){
@@ -410,16 +420,16 @@ cal_recent_cpu(struct thread *t){
   }
    fp d= Divide_fixed_point_numbers(Multiply_fixed_point_by_int(load_avg,2),Add_fixed_point_and_int(Multiply_fixed_point_by_int(load_avg,2),1));
    t->recent_cpu = Add_fixed_point_and_int(Multiply_fixed_point_numbers(d,t->recent_cpu),t->nice);
-   cal_priority(t);
+  //  cal_priority(t);
 }
 void
 cal_load_avg(void){
   
   fp v1= Divide_fixed_point_numbers(Convert_to_fixed_point(59),Convert_to_fixed_point(60));
   fp v2= Divide_fixed_point_numbers(Convert_to_fixed_point(1),Convert_to_fixed_point(60));
-  int ready_threads;
+  size_t ready_threads;
   ready_threads = list_size(&(ready_list));
-  if(running_thread()!=idle_thread){
+  if(thread_current()!=idle_thread){
     ready_threads = ready_threads+1;
   }
 
@@ -468,8 +478,8 @@ thread_set_nice (int nice UNUSED)
 {
   thread_current()->nice = nice;
 
-  cal_priority(thread_current());
-  thread_yield();
+  // cal_priority(thread_current());
+  // thread_yield();
   
 }
 
