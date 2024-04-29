@@ -4,7 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
-
+#include "Fixed_Point.h"
 /* States in a thread's life cycle. */
 enum thread_status
   {
@@ -23,6 +23,11 @@ typedef int tid_t;
 #define PRI_MIN 0                       /* Lowest priority. */
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
+
+
+#define GREATER_THAN true
+#define SMALLER_THAN false
+typedef bool aux_compare;
 
 /* A kernel thread or user process.
 
@@ -89,7 +94,12 @@ struct thread
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
     struct list_elem allelem;           /* List element for all threads list. */
-
+   int64_t NumberOfSleepingTicks;
+   int original_priority;
+   struct lock *blocked_lock;
+   struct list aquired_locks;
+   int nice;
+   fp recent_cpu;   
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
@@ -129,6 +139,13 @@ void thread_yield (void);
 /* Performs some operation on thread t, given auxiliary data AUX. */
 typedef void thread_action_func (struct thread *t, void *aux);
 void thread_foreach (thread_action_func *, void *);
+
+bool compare_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
+
+void cal_priority(struct thread *t);
+void cal_recent_cpu(struct thread *t);
+void cal_load_avg(void);
+
 
 int thread_get_priority (void);
 void thread_set_priority (int);

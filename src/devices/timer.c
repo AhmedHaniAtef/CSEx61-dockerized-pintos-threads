@@ -7,7 +7,7 @@
 #include "threads/interrupt.h"
 #include "threads/synch.h"
 #include "threads/thread.h"
-  
+#include "threads/Fixed_Point.h" 
 /* See [8254] for hardware details of the 8254 timer chip. */
 
 #if TIMER_FREQ < 19
@@ -32,12 +32,26 @@ static void real_time_delay (int64_t num, int32_t denom);
 
 /* Sets up the timer to interrupt TIMER_FREQ times per second,
    and registers the corresponding interrupt. */
+
+
+/*
+ZIAD AMR CODE STARTS HERE
+*/
+static void putThreadToSleep(int64_t ticksToSleep);
+static void wakeThreadFromSleep(void);
+static bool compareThreadTicks(const struct list_elem *a,const  struct list_elem *b, void *aux UNUSED);
+static struct list sleepList;
+/*
+ZIAD AMR CODE ENDS HERE
+*/
 void
 timer_init (void) 
 {
+  list_init(&sleepList);
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
 }
+
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
 void
@@ -90,10 +104,11 @@ void
 timer_sleep (int64_t ticks) 
 {
   int64_t start = timer_ticks ();
-
   ASSERT (intr_get_level () == INTR_ON);
-  while (timer_elapsed (start) < ticks) 
-    thread_yield ();
+  putThreadToSleep(ticks);
+
+  // while (timer_elapsed (start) < ticks) 
+  //   thread_yield ();
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -170,8 +185,11 @@ timer_print_stats (void)
 static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
+  enum intr_level oldLevel = intr_disable();
   ticks++;
   thread_tick ();
+  wakeThreadFromSleep();
+  intr_set_level(oldLevel);
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
@@ -244,3 +262,47 @@ real_time_delay (int64_t num, int32_t denom)
   ASSERT (denom % 1000 == 0);
   busy_wait (loops_per_tick * num / 1000 * TIMER_FREQ / (denom / 1000)); 
 }
+
+/*
+START
+*/
+static void putThreadToSleep(int64_t ticksToSleep)
+{
+  if (ticksToSleep < 0)
+  {
+    // PANIC("NEGATIVE TICKS");
+    return;
+  }
+  enum intr_level oldLevel = intr_disable();
+  struct thread *current = thread_current ();
+  current->NumberOfSleepingTicks = ticksToSleep + timer_ticks();
+  // printf("Thread %s is going to sleep for %d ticks\n",current->name, ticksToSleep);
+  list_insert_ordered(&sleepList, &current->elem, compareThreadTicks, NULL);
+  thread_block();
+  intr_set_level(oldLevel);
+}
+static void wakeThreadFromSleep()
+{
+  struct thread *tmp;
+  struct list_elem *front;
+  while (!list_empty(&sleepList))
+  {
+    front = list_front(&sleepList);
+    tmp = list_entry(front, struct thread, elem);
+    if (tmp->NumberOfSleepingTicks >= ticks)
+      break;
+    list_pop_front(&sleepList);
+    thread_unblock(tmp);
+    
+  
+  }
+}
+static bool compareThreadTicks(const struct list_elem *a,const struct list_elem *b, void *aux UNUSED)
+{
+  struct thread *aThread = list_entry(a, struct thread, elem);
+  struct thread *bThread = list_entry(b, struct thread, elem);
+  return aThread->NumberOfSleepingTicks < bThread->NumberOfSleepingTicks ?true:false;
+}
+/*
+END
+*/

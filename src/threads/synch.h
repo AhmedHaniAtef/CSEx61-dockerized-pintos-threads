@@ -4,6 +4,9 @@
 #include <list.h>
 #include <stdbool.h>
 
+
+#define MAX_LEVEL_DONATE  ((size_t)8)
+
 /* A counting semaphore. */
 struct semaphore 
   {
@@ -21,6 +24,7 @@ void sema_self_test (void);
 struct lock 
   {
     struct thread *holder;      /* Thread holding lock (for debugging). */
+    struct list_elem elem;      /* list element object to add to the list of locks of the holder thread. */
     struct semaphore semaphore; /* Binary semaphore controlling access. */
   };
 
@@ -34,6 +38,7 @@ bool lock_held_by_current_thread (const struct lock *);
 struct condition 
   {
     struct list waiters;        /* List of waiting threads. */
+    struct semaphore semaphore;
   };
 
 void cond_init (struct condition *);
